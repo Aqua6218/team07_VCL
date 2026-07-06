@@ -72,6 +72,22 @@ app.use('/api/notes', noteRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/gyro', gyroRoutes);
 
+app.get('/api/experiments', async (req, res) => {
+    try {
+        const { getSupabaseAdmin } = await import('./config/supabaseClient.js');
+        const supabase = getSupabaseAdmin();
+        const { data, error } = await supabase
+            .from('experiment')
+            .select('experiment_id, experiment_code, experiment_name, experiment_description, experiment_item')
+            .order('experiment_id', { ascending: true });
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        console.error('Failed to load experiments:', err);
+        res.status(500).json({ error: 'Failed to load experiments' });
+    }
+});
+
 app.get('/api/chemicals', (req, res) => {
     try {
         const periodicPath = path.resolve(__dirname, 'data/periodic.json');

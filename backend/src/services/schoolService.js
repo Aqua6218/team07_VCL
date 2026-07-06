@@ -216,8 +216,8 @@ export class SchoolService {
 
         // 表示名ではなく固定IDのexperiment_codeで実験を特定する。
         const experiment = assertSupabaseResult(await this.supabase
-            .from('experiments')
-            .select('id, experiment_code, title')
+            .from('experiment')
+            .select('experiment_id, experiment_code, experiment_name')
             .eq('experiment_code', experimentCode)
             .single());
 
@@ -234,7 +234,7 @@ export class SchoolService {
         // 同じ生徒・同じ実験は1行に集約し、最新状態へ更新する。
         const row = {
             student_id: studentId,
-            experiment_id: experiment.id,
+            experiment_id: experiment.experiment_id,
             status,
             progress_percent: progressPercent,
             mixing_progress: mixingProgress,
@@ -263,7 +263,7 @@ export class SchoolService {
         return {
             ...progress,
             experiment_code: experiment.experiment_code,
-            title: experiment.title
+            title: experiment.experiment_name
         };
     }
 
@@ -286,10 +286,9 @@ export class SchoolService {
         const klass = await this.getTeacherClass(teacherId, classId);
         const students = await this.listStudents(teacherId, classId);
         const experiments = assertSupabaseResult(await this.supabase
-            .from('experiments')
-            .select('id, experiment_code, title, display_order')
-            .eq('is_available', true)
-            .order('display_order', { ascending: true }));
+            .from('experiment')
+            .select('experiment_id, experiment_code, experiment_name')
+            .order('experiment_id', { ascending: true }));
 
         const studentIds = students.map(student => student.id);
         if (studentIds.length === 0) {
@@ -305,7 +304,7 @@ export class SchoolService {
                 mixing_progress,
                 required_mixing,
                 updated_at,
-                experiments (experiment_code, title)
+                experiment (experiment_code, experiment_name)
             `)
             .in('student_id', studentIds));
 
@@ -320,7 +319,7 @@ export class SchoolService {
             if (!progressByStudent.has(row.student_id)) {
                 progressByStudent.set(row.student_id, {});
             }
-            progressByStudent.get(row.student_id)[row.experiments.experiment_code] = {
+            progressByStudent.get(row.student_id)[row.experiment.experiment_code] = {
                 status: row.status,
                 progressPercent: row.progress_percent,
                 mixingProgress: row.mixing_progress,

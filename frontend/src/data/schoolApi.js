@@ -34,6 +34,12 @@ export function saveTeacherAccessToken(accessToken) {
     localStorage.setItem('vcl_teacher_access_token', accessToken);
 }
 
+// experimentテーブルから実験一覧を取得する（認証不要）。
+export async function fetchExperiments() {
+    const response = await fetch('/api/experiments');
+    return parseResponse(response);
+}
+
 // ログイン中の先生プロフィールを取得する。
 export async function getTeacherProfile() {
     const response = await fetch(`${API_BASE}/teacher/me`, {

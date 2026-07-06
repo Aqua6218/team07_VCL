@@ -44,8 +44,8 @@ create table if not exists public.students (
 );
 
 -- クエスト定義のexp_01形式とDB側の実験一覧を対応させる。
-create table if not exists public.experiments (
-    id uuid primary key default gen_random_uuid(), -- 実験ID
+create table if not exists public.experiment (
+    experiment_id bigint primary key generated always as identity, -- 実験ID
     experiment_code text not null unique check (experiment_code ~ '^exp_[0-9]{2}$'), -- exp_01形式の実験コード
     title text not null, -- 実験名
     display_order integer not null default 0, -- 一覧での表示順
@@ -58,7 +58,7 @@ create table if not exists public.experiments (
 create table if not exists public.student_progress (
     id uuid primary key default gen_random_uuid(), -- 進捗ID
     student_id uuid not null references public.students(id) on delete cascade, -- 対象生徒
-    experiment_id uuid not null references public.experiments(id) on delete cascade, -- 対象実験
+    experiment_id bigint not null references public.experiment(experiment_id) on delete cascade, -- 対象実験
     status text not null default 'started' check (
         status in ('not_started', 'started', 'reagent_added', 'mixing', 'completed', 'failed')
     ), -- 進捗状態
@@ -99,9 +99,9 @@ before update on public.students
 for each row execute function public.set_updated_at();
 
 -- 実験マスタ更新時にupdated_atを更新する。
-drop trigger if exists set_experiments_updated_at on public.experiments;
-create trigger set_experiments_updated_at
-before update on public.experiments
+drop trigger if exists set_experiment_updated_at on public.experiment;
+create trigger set_experiment_updated_at
+before update on public.experiment
 for each row execute function public.set_updated_at();
 
 -- 生徒進捗更新時にupdated_atを更新する。
@@ -111,7 +111,7 @@ before update on public.student_progress
 for each row execute function public.set_updated_at();
 
 -- 初期表示に使う実験マスタを登録する。
-insert into public.experiments (experiment_code, title, display_order, is_available)
+insert into public.experiment (experiment_code, title, display_order, is_available)
 values
     ('exp_01', '酸素の発生実験', 1, true),
     ('exp_02', '二酸化炭素の発生実験', 2, true),
@@ -128,7 +128,7 @@ on conflict (experiment_code) do update set
 alter table public.teacher_profiles enable row level security;
 alter table public.classes enable row level security;
 alter table public.students enable row level security;
-alter table public.experiments enable row level security;
+alter table public.experiment enable row level security;
 alter table public.student_progress enable row level security;
 alter table public.student_trophies enable row level security;
 
@@ -216,9 +216,9 @@ with check (
 );
 
 -- ログイン済みユーザーは実験マスタを読める。
-drop policy if exists "experiments are readable by authenticated users" on public.experiments;
-create policy "experiments are readable by authenticated users"
-on public.experiments
+drop policy if exists "experiment are readable by authenticated users" on public.experiment;
+create policy "experiment are readable by authenticated users"
+on public.experiment
 for select
 to authenticated
 using (true);
@@ -258,5 +258,5 @@ using (
 create index if not exists idx_classes_teacher_id on public.classes(teacher_id); -- 先生別クラス検索を速くする
 create index if not exists idx_students_class_id on public.students(class_id); -- クラス別生徒検索を速くする
 create index if not exists idx_student_progress_student_id on public.student_progress(student_id); -- 生徒別進捗検索を速くする
-create index if not exists idx_student_progress_experiment_id on public.student_progress(experiment_id); -- 実験別進捗検索を速くする
+create index if not exists idx_student_progress_experiment_id on public.student_progress(experiment_id); -- 実験別進捗検索を速くする（experiment テーブル参照）
 create index if not exists idx_student_trophies_student_id on public.student_trophies(student_id); -- 生徒別トロフィー検索を速くする

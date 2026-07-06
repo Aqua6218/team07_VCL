@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node *)"
+      "Bash(node *)",
+      "PowerShell(netstat *)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3000/api/auth/login\" -Method POST -ContentType \"application/json\" -Body '{\"email\":\"test@test.com\",\"password\":\"test\"}' -UseBasicParsing 2>&1)",
+      "PowerShell(Invoke-WebRequest -Uri \"https://jjetfhiqfqcjssahqjxn.supabase.co\" -UseBasicParsing -TimeoutSec 10 2>&1 | Select-Object -First 3)",
+      "PowerShell(Invoke-WebRequest -Uri \"https://www.google.com\" -UseBasicParsing -TimeoutSec 10 2>&1 | Select-Object -First 2)",
+      "PowerShell(Resolve-DnsName *)",
+      "PowerShell(Invoke-WebRequest -Uri \"https://jjetfhiqfqcjssahqjxn.supabase.co\" -UseBasicParsing -TimeoutSec 15 2>&1 | Select-Object StatusCode, StatusDescription)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3000/api/school/progress-board\" -UseBasicParsing -TimeoutSec 10 2>&1 | Select-Object StatusCode, Content)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3000/api/experiments\" -UseBasicParsing -TimeoutSec 10 2>&1 | Select-Object StatusCode, Content)",
+      "Bash(git checkout *)"
     ]
   }
 }
