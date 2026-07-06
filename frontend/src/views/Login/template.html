@@ -1,0 +1,81 @@
+<div class="login-wrapper">
+    <section class="login-shell" aria-label="VCL ログイン">
+        <div class="login-visual" aria-hidden="true">
+            <div class="visual-topline">
+                <span>VCL ACCESS TERMINAL</span>
+                <span>LAB-07</span>
+            </div>
+
+            <div class="visual-content">
+                <p class="visual-kicker">Virtual Chemistry Lab</p>
+                <h1 class="visual-title">実験室へ<br>入室する</h1>
+                <p class="visual-description">危険な試薬を使わず、観察・混合・記録を安全なシミュレーションで始めます。</p>
+            </div>
+
+            <div class="molecule-board">
+                <span class="molecule-node node-a"></span>
+                <span class="molecule-node node-b"></span>
+                <span class="molecule-node node-c"></span>
+                <span class="molecule-node node-d"></span>
+                <span class="molecule-link link-ab"></span>
+                <span class="molecule-link link-bc"></span>
+                <span class="molecule-link link-cd"></span>
+            </div>
+
+            <div class="visual-readouts">
+                <div>
+                    <span class="readout-label">ROOM</span>
+                    <strong>STABLE</strong>
+                </div>
+                <div>
+                    <span class="readout-label">SAFETY</span>
+                    <strong>READY</strong>
+                </div>
+                <div>
+                    <span class="readout-label">MODE</span>
+                    <strong>SELECT</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="login-form-section">
+            <div class="login-card-modern">
+                <div class="form-header">
+                    <p class="form-kicker">Student / Teacher Access</p>
+                    <h2>ログイン</h2>
+                    <p>保存した進捗とトロフィーを読み込みます。</p>
+                </div>
+
+                <form id="login-form">
+                    <div class="login-input-group">
+                        <label for="email">メールアドレス</label>
+                        <div class="login-input-wrapper">
+                            <span class="field-tag">ID</span>
+                            <input type="email" id="email" required placeholder="name@school.ed.jp" autocomplete="email">
+                        </div>
+                    </div>
+
+                    <div class="login-input-group">
+                        <label for="password">パスワード</label>
+                        <div class="login-input-wrapper">
+                            <span class="field-tag">KEY</span>
+                            <input type="password" id="password" required placeholder="パスワードを入力" autocomplete="current-password">
+                        </div>
+                    </div>
+
+                    <div class="form-error" id="login-error" role="alert" aria-live="polite"></div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="primary-btn login-btn">
+                            ラボへ入る
+                        </button>
+                    </div>
+                </form>
+
+                <div class="form-footer">
+                    <p>初めてですか？ <a href="/register" data-link>アカウントを作成</a></p>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>

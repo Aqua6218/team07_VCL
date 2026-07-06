@@ -1,0 +1,151 @@
+/* Live/style.css - Light Theme High Contrast */
+.live-container {
+    padding: 30px;
+    width: 100%;
+    display: flex;
+    gap: 30px;
+    height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+    color: #333;
+}
+
+/* メインパネル */
+.live-join-panel {
+    flex: 2;
+    background-color: #ffffff !important; /* 完全な不透明 */
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px;
+    overflow-y: auto;
+    border: none;
+    z-index: 10; /* コンテンツレイヤーより上にする */
+    position: relative;
+}
+
+/* サイドパネル */
+.live-side-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    z-index: 5;
+}
+
+.live-info-panel,
+.live-side-panel > div,
+.history-section {
+    background-color: #ffffff !important;
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 10;
+}
+
+.teacher-menu-title {
+    margin-top: 0;
+    color: #2c3e50;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Teacher / History Panels */
+.live-info-panel,
+.live-side-panel > div {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+}
+
+.teacher-menu-title {
+    margin-top: 0;
+    color: #2c3e50;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+.teacher-menu-desc {
+    font-size: 0.9em;
+    color: #7f8c8d;
+    margin-bottom: 15px;
+}
+
+.create-room-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    background: #74b9ff;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.create-room-btn:hover {
+    background: #0984e3;
+}
+
+.history-section {
+    flex-grow: 1; /* This assumes it's inside a flex container */
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+}
+
+.history-title {
+    margin-top: 0;
+    font-size: 1.2em;
+    color: #2c3e50;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+    font-weight: 700;
+}
+
+.history-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 15px;
+    color: #333;
+}
+
+.history-item {
+    padding: 12px;
+    border-bottom: 1px solid #f5f5f5;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.95em;
+    color: #2d3436;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-date {
+    color: #b2bec3;
+    font-size: 0.9em;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}

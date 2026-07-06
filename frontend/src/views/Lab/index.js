@@ -1,0 +1,794 @@
+/**
+ * ファイル名: frontend/src/views/Lab/index.js
+ * 概要: 実験室画面（View）の実装
+ * 役割:
+ *   - Three.jsシーン(LabScene)のホスティング
+ *   - UI操作（周期表、説明ダイアログなど）の管理
+ *   - 実験完了イベントのハンドリングとトロフィー付与トリガー
+ */
+import '../../assets/periodicTable.css';
+import { periodicData } from '../../data/periodicData.js';
+import { PERIODIC_TABLE_COLUMNS, PERIODIC_TABLE_ROWS, periodicTableLayout } from '../../data/periodicTable.js';
+import { evaluateFreeReaction, getFreeModeCoverageSummary } from '../../data/freeModeApi.js';
+import { recordExperimentProgress } from '../../data/progress.js';
+import { getQuestById } from '../../data/quests.js';
+import { trophiesData, unlockTrophy } from '../../data/trophies.js';
+import { LabScene } from '../../scenes/LabScene.js';
+import './style.css';
+import template from './template.html?raw';
+
+export function LabView(navigateTo, params = {}) {
+    const container = document.createElement('div');
+    container.classList.add('view-container');
+    container.innerHTML = template;
+    const quest = getQuestById(params.id);
+    const isFreeMode = !params.id;
+
+    const toast = container.querySelector('.trophy-toast');
+
+    // 通知を表示するヘルパー関数
+    function showTrophyToast(title) {
+        const body = toast.querySelector('.trophy-toast-body');
+        if(body) body.textContent = `「${title}」`;
+
+        // Popover表示 (サポートされている場合)
+        if (toast.showPopover) {
+             try { toast.showPopover(); } catch(e) { }
+        } else {
+             // Fallback: z-indexで頑張る (ただしダイアログの裏になる可能性あり)
+             toast.style.display = 'flex';
+        }
+
+        // アニメーション
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+        });
+
+        // 5秒後に消す
+        setTimeout(() => {
+            toast.classList.remove('show');
+            if(toast.hidePopover) try { toast.hidePopover(); } catch(e) {}
+            else toast.style.display = 'none';
+        }, 5000);
+    }
+
+    function setExplanationContent(target, htmlText) {
+        target.replaceChildren();
+        if (!htmlText) {
+            target.textContent = '実験が完了しました。';
+            return;
+        }
+        const fragment = document.createRange().createContextualFragment(htmlText);
+        target.appendChild(fragment);
+    }
+
+    function showInstruction(message) {
+        const instructionBox = container.querySelector('#lab-instruction-box');
+        const instructionText = container.querySelector('#lab-instruction-text');
+        if (!instructionBox || !instructionText) return;
+
+        instructionText.textContent = message;
+        instructionBox.style.display = 'block';
+    }
+
+    // タイトル設定
+    const titleEl = container.querySelector('#lab-title-display');
+    if (titleEl) {
+        titleEl.textContent = params.title || quest?.title || 'フリー実験';
+    }
+
+    // ---------------------------------------------------------
+    // 状態管理変数
+    // ---------------------------------------------------------
+    let labScene = null;
+    let intervalId = null;
+    let seconds = 0;
+
+    // 周期表関連
+    let isPeriodicOpen = false;
+    let currentFocusIndex = 0; // periodicTableLayout のインデックス
+    let detailedData = periodicData;   // フロントエンドのデータを使用
+
+    // Joy-Con入力制御用
+    let lastStickMoveTime = 0;
+    const STICK_DELAY = 150;      // スティック入力の反応間隔(ms)
+    const STICK_THRESHOLD = 0.5;  // スティックの倒し込み閾値
+
+    // ---------------------------------------------------------
+    // DOM要素の取得
+    // ---------------------------------------------------------
+    const overlay = container.querySelector('#periodic-table-overlay');
+    const tableEl = container.querySelector('#periodic-table-grid');
+    const elementTemplate = container.querySelector('#periodic-element-template');
+    const btnPeriodic = container.querySelector('#btn-lab-periodic-table');
+    const btnClosePeriodic = container.querySelector('#btn-close-periodic');
+    const btnFinish = container.querySelector('#btn-lab-finish');
+    const timerEl = container.querySelector('#lab-timer');
+    const freeModeStatusPanel = container.querySelector('[data-free-mode-status]');
+    const freeModeTestTubeNameEl = container.querySelector('[data-free-testtube-name]');
+    const freeModeFlaskNameEl = container.querySelector('[data-free-flask-name]');
+    const freeModeReactionStatusEl = container.querySelector('[data-free-reaction-status]');
+    const freeModeMixMeter = container.querySelector('.free-mode-mix-meter');
+    const freeModeMixBar = container.querySelector('[data-free-mix-bar]');
+    const freeModeCoverageEl = container.querySelector('[data-free-coverage]');
+    const freeModeCoverageSummary = getFreeModeCoverageSummary();
+    const FREE_MODE_REACTION_THRESHOLD = 30;
+    let freeModeStatusFrameId = null;
+    let freeModeTestTubeName = '';
+    let freeModeFlaskName = '';
+
+    // 詳細情報パネル要素
+    const infoNameJp = container.querySelector('#pt-info-name-jp');
+    const infoNameEn = container.querySelector('#pt-info-name-en');
+    const infoSymbol = container.querySelector('#pt-info-symbol');
+    const infoNumber = container.querySelector('#pt-info-number');
+    const infoWeight = container.querySelector('#pt-info-weight');
+    const infoMp = container.querySelector('#pt-info-mp');
+    const infoBp = container.querySelector('#pt-info-bp');
+    const infoApp = container.querySelector('#pt-info-app');
+    const infoDesc = container.querySelector('#pt-info-desc');
+
+    function getChemicalLabel(chemicalData) {
+        if (!chemicalData) return '';
+        return chemicalData.Name || chemicalData.name || chemicalData.JapaneseName || chemicalData.Symbol || chemicalData.symbol || '';
+    }
+
+    function stopFreeModeStatusLoop() {
+        if (freeModeStatusFrameId !== null) {
+            cancelAnimationFrame(freeModeStatusFrameId);
+            freeModeStatusFrameId = null;
+        }
+    }
+
+    function updateFreeModeStatusPanel() {
+        if (!freeModeStatusPanel) return;
+
+        if (!isFreeMode) {
+            freeModeStatusPanel.hidden = true;
+            return;
+        }
+
+        freeModeStatusPanel.hidden = false;
+
+        const tubeName = labScene?.currentChemicalName || freeModeTestTubeName || '';
+        const flaskName = labScene?.flaskChemicalName || freeModeFlaskName || '';
+        const hasTube = tubeName.length > 0;
+        const hasFlask = flaskName.length > 0;
+        const progress = labScene?.mixingProgress || 0;
+        let progressPercent = 0;
+        let statusText = '周期表から2つ選んでください';
+        let state = 'empty';
+
+        if (!hasTube && !hasFlask) {
+            statusText = '周期表から2つ選んでください';
+            state = 'empty';
+        } else if (!hasTube) {
+            statusText = '試験管に入れる物質を選んでください';
+            state = 'waiting';
+        } else if (!hasFlask) {
+            statusText = 'フラスコに入れる物質を選んでください';
+            state = 'waiting';
+        } else if (!labScene?.freeModeReactantName) {
+            statusText = '試験管を傾けてフラスコへ注いでください';
+            state = 'ready';
+        } else if (labScene?.freeModeReactionPending) {
+            statusText = '観察結果を判定中です';
+            progressPercent = 100;
+            state = 'pending';
+        } else if (labScene?.freeModeReactionRequested && labScene?.freeModeReaction) {
+            const title = labScene.freeModeReaction.title || '結果を表示しました';
+            statusText = `観察結果: ${title}`;
+            progressPercent = 100;
+            state = 'result';
+        } else if (labScene?.freeModeReactionRequested) {
+            statusText = '観察結果を表示しました';
+            progressPercent = 100;
+            state = 'result';
+        } else {
+            progressPercent = Math.min(100, Math.round((progress / FREE_MODE_REACTION_THRESHOLD) * 100));
+            statusText = progressPercent > 0 ? `混合中 ${progressPercent}%` : 'フラスコを振って混ぜてください';
+            state = 'mixing';
+        }
+
+        if (freeModeTestTubeNameEl) freeModeTestTubeNameEl.textContent = hasTube ? tubeName : '未設定';
+        if (freeModeFlaskNameEl) freeModeFlaskNameEl.textContent = hasFlask ? flaskName : '未設定';
+        if (freeModeReactionStatusEl) freeModeReactionStatusEl.textContent = statusText;
+        freeModeStatusPanel.dataset.state = state;
+
+        if (freeModeMixBar) {
+            freeModeMixBar.style.width = `${progressPercent}%`;
+        }
+
+        if (freeModeMixMeter) {
+            freeModeMixMeter.setAttribute('aria-valuenow', String(progressPercent));
+        }
+
+        if (freeModeCoverageEl) {
+            freeModeCoverageEl.textContent = freeModeCoverageSummary.displayText;
+        }
+    }
+
+    function startFreeModeStatusLoop() {
+        if (!isFreeMode || freeModeStatusFrameId !== null) return;
+
+        const tick = () => {
+            updateFreeModeStatusPanel();
+            if (!document.body.contains(container)) {
+                freeModeStatusFrameId = null;
+                return;
+            }
+            freeModeStatusFrameId = requestAnimationFrame(tick);
+        };
+
+        freeModeStatusFrameId = requestAnimationFrame(tick);
+    }
+
+    // ---------------------------------------------------------
+    // 関数定義 (周期表ロジック)
+    // ---------------------------------------------------------
+
+    // 1. データロード (API廃止 -> インポート済みデータ使用)
+    async function loadPeriodicDetails() {
+        // 既にimportされているので何もしない (将来的にAPIに戻す場合はここを復活)
+        // detailedData = periodicData;
+        console.log('Chemical details loaded from local source');
+    }
+    loadPeriodicDetails();
+
+    // 2. 情報パネル更新
+    function updateInfoPanel(layoutData) {
+        if (!infoSymbol) return;
+
+        infoSymbol.textContent = layoutData.symbol;
+        infoNameJp.textContent = layoutData.name;
+        infoNumber.textContent = layoutData.number;
+
+        let detail = null;
+        if (detailedData && Array.isArray(detailedData)) {
+            // まず番号でマッチングを試みる (より確実)
+            // backendのAtomicNumberとfrontendのnumberが一致するか？
+            detail = detailedData.find(d => d.AtomicNumber === layoutData.number);
+
+            // もし番号で見つからなければ、名前でマッチングを試みる (バックアップ)
+            if (!detail) {
+                detail = detailedData.find(d => d.Name === layoutData.name);
+            }
+        }
+
+        // デバッグ用ログ: どういうデータが来ているか確認
+        // console.log('Looking for:', layoutData.name, 'Found:', detail);
+
+        if (detail) {
+            // 詳細DBにない後半の元素でも、周期表側の最低限の情報を表示する。
+            infoNameEn.textContent = detail.EnglishName || detail.Symbol || layoutData.englishName || '-';
+            infoWeight.textContent = detail.MolecularWeight || '-';
+            infoMp.textContent = detail.MeltingPoint || '-';
+            infoBp.textContent = detail.BoilingPoint || '-';
+            infoApp.textContent = detail.Appearance || layoutData.appearance || layoutData.categoryLabel || '-';
+            // Descriptionがあればそれを、なければGHSがあればそれを
+            infoDesc.textContent = detail.Description || detail.GHSClassification || `${layoutData.categoryLabel || '元素'}として周期表から選択できます。`;
+        } else {
+            infoNameEn.textContent = layoutData.englishName || '-';
+            infoWeight.textContent = '-';
+            infoMp.textContent = '-';
+            infoBp.textContent = '-';
+            infoApp.textContent = layoutData.appearance || layoutData.categoryLabel || '-';
+            infoDesc.textContent = `${layoutData.categoryLabel || '元素'}として周期表から選択できます。`;
+        }
+    }
+
+    // 3. 周期表レンダリング
+    function buildChemicalData(layoutData) {
+        let detail = null;
+        if (detailedData && Array.isArray(detailedData)) {
+            detail = detailedData.find(d => d.AtomicNumber === layoutData.number) || detailedData.find(d => d.Name === layoutData.name);
+        }
+        return detail ? { ...layoutData, ...detail } : layoutData;
+    }
+
+    function selectPeriodicElement(layoutData) {
+        currentFocusIndex = layoutData.originalIndex ?? periodicTableLayout.findIndex(item => item.number === layoutData.number);
+        const selected = periodicTableLayout[currentFocusIndex] || layoutData;
+        console.log('Selected Chemical:', selected);
+
+        closePeriodicTable();
+        openSelectionDialog(buildChemicalData(selected));
+    }
+
+    function renderTable() {
+        if (!tableEl || !elementTemplate) return;
+        tableEl.replaceChildren();
+
+        // 周期表全体を表示するため、fブロック用の2行も含めたグリッドを作成する。
+        const rows = PERIODIC_TABLE_ROWS;
+        const cols = PERIODIC_TABLE_COLUMNS;
+        const grid = Array(rows).fill().map(() => Array(cols).fill(null));
+
+        // データをグリッドにマッピング
+        periodicTableLayout.forEach((el, idx) => {
+            if (el.period >= 1 && el.period <= rows && el.group >= 1 && el.group <= cols) {
+                grid[el.period - 1][el.group - 1] = { ...el, originalIndex: idx };
+            }
+        });
+
+        // HTML生成
+        for (let p = 0; p < rows; p++) {
+            for (let g = 0; g < cols; g++) {
+                const elData = grid[p][g];
+                const cell = elementTemplate.content.firstElementChild.cloneNode(true);
+
+                if (elData) {
+                    cell.className = 'element-cell';
+                    if (elData.originalIndex === currentFocusIndex) {
+                        cell.classList.add('selected');
+                        updateInfoPanel(elData);
+                    }
+
+                    cell.querySelector('.element-number').textContent = elData.number;
+                    cell.querySelector('.element-symbol').textContent = elData.symbol;
+                    cell.querySelector('.element-name').textContent = elData.name;
+
+                    // クリックイベント
+                    cell.onclick = () => selectPeriodicElement(elData);
+                } else {
+                    // 空白セル (不可視だがレイアウト維持のため配置)
+                    cell.className = 'element-cell empty';
+                    cell.style.visibility = 'hidden';
+                }
+                tableEl.appendChild(cell);
+            }
+        }
+    }
+
+    // 4. 開閉操作
+    const handleEscKey = (e) => {
+        console.log('Key pressed:', e.key);
+        if (e.key === 'Escape') closePeriodicTable();
+    };
+
+    function openPeriodicTable() {
+        if (!overlay) return;
+        if (isPeriodicOpen) return;
+
+        isPeriodicOpen = true;
+        overlay.style.display = 'flex';
+        renderTable();
+        // LabSceneの入力を一時停止 (カメラ操作などをブロック)
+        if (labScene) labScene.setInputEnabled(false);
+
+        // windowではなくdocumentに登録してみる、かつcaptureフェーズで捕捉
+        document.addEventListener('keydown', handleEscKey, true);
+        console.log('Periodic table opened, Esc listener added');
+    }
+
+    function closePeriodicTable() {
+        if (!overlay) return;
+        isPeriodicOpen = false;
+        overlay.style.display = 'none';
+        // LabSceneの入力を再開
+        if (labScene) labScene.setInputEnabled(true);
+
+        document.removeEventListener('keydown', handleEscKey, true);
+        console.log('Periodic table closed, Esc listener removed');
+    }
+
+    // ---------------------------------------------------------
+    // 薬品セット先選択ダイアログ制御
+    // ---------------------------------------------------------
+    let pendingChemicalData = null;
+    const dialogSelect = container.querySelector('#chemical-select-dialog');
+    const dialogNameEl = container.querySelector('#chemical-select-name');
+    const btnSetTube = container.querySelector('#btn-set-testtube');
+    const btnSetFlask = container.querySelector('#btn-set-flask');
+    const btnCancelSelect = container.querySelector('#btn-cancel-select');
+
+    function openSelectionDialog(data) {
+        pendingChemicalData = data;
+        if(dialogNameEl) dialogNameEl.textContent = data.name || data.Symbol;
+        if(dialogSelect) dialogSelect.style.display = 'flex';
+        if(labScene) labScene.setInputEnabled(false);
+    }
+
+    function closeSelectionDialog() {
+        if(dialogSelect) dialogSelect.style.display = 'none';
+        pendingChemicalData = null;
+        if(labScene) labScene.setInputEnabled(true);
+    }
+
+    // イベント設定
+    if(btnSetTube) {
+        btnSetTube.onclick = () => {
+            if(labScene && pendingChemicalData) {
+                labScene.setChemical(pendingChemicalData);
+                if (isFreeMode) {
+                    freeModeTestTubeName = getChemicalLabel(pendingChemicalData);
+                    updateFreeModeStatusPanel();
+                }
+                // タイトルに反映 (どちらに何を入れたか分かりやすくするため、実験中...の表記を変えてもいいが、とりあえず薬品名)
+                // if(titleEl) titleEl.textContent = pendingChemicalData.name;
+            }
+            closeSelectionDialog();
+            closePeriodicTable();
+        };
+    }
+
+    if(btnSetFlask) {
+        btnSetFlask.onclick = () => {
+            if(labScene && pendingChemicalData) {
+                if(labScene.setFlaskChemical) {
+                    labScene.setFlaskChemical(pendingChemicalData);
+                    if (isFreeMode) {
+                        freeModeFlaskName = getChemicalLabel(pendingChemicalData);
+                        updateFreeModeStatusPanel();
+                    }
+                } else {
+                    console.warn('setFlaskChemical not implemented');
+                }
+            }
+            closeSelectionDialog();
+            closePeriodicTable();
+        };
+    }
+
+    if(btnCancelSelect) {
+        btnCancelSelect.onclick = () => {
+             closeSelectionDialog();
+             // 周期表は開いたままにする？ いや、キャンセルしたら戻る感じでOK
+        };
+    }
+
+    // 5. ナビゲーションロジック (上下左右移動)
+    function handleInput(action) {
+        if (!isPeriodicOpen) return;
+
+        const currentEl = periodicTableLayout[currentFocusIndex];
+
+        // 現在位置から指定方向(dPeriod, dGroup)に最も近い要素を探す
+        const findNavTarget = (dPeriod, dGroup) => {
+            let p = currentEl.period;
+            let g = currentEl.group;
+
+            let bestCandidate = null;
+            let minDist = 9999;
+
+            periodicTableLayout.forEach((cand, idx) => {
+                if (idx === currentFocusIndex) return;
+
+                const dp = cand.period - p;
+                const dg = cand.group - g;
+
+                let valid = false;
+                // 方向判定
+                if (dPeriod === -1) valid = (dp < 0 && Math.abs(dg) <= 1); // 上
+                if (dPeriod === 1) valid = (dp > 0 && Math.abs(dg) <= 1); // 下
+                if (dGroup === -1) valid = (dg < 0 && Math.abs(dp) <= 0); // 左
+                if (dGroup === 1) valid = (dg > 0 && Math.abs(dp) <= 0); // 右
+
+                if (valid) {
+                    const dist = Math.abs(dp) + Math.abs(dg); // マンハッタン距離
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestCandidate = idx;
+                    }
+                }
+            });
+            return bestCandidate;
+        };
+
+        let newIndex = null;
+        if (action === 'up') newIndex = findNavTarget(-1, 0);
+        if (action === 'down') newIndex = findNavTarget(1, 0);
+        if (action === 'left') newIndex = findNavTarget(0, -1);
+        if (action === 'right') newIndex = findNavTarget(0, 1);
+
+        if (newIndex !== null) {
+            currentFocusIndex = newIndex;
+            renderTable();
+        }
+
+        if (action === 'close') {
+            closePeriodicTable();
+        }
+    }
+
+    // 6. Joy-Conイベントハンドラ (LabSceneから呼ばれる)
+    function handleJoyConInput(data) {
+        // data structure: { angle: number, raw: { buttons, sticks... } }
+        const raw = data.raw;
+        if (!raw) return;
+
+        // 周期表が開いていない時はここで終了 (または開くボタンのチェック)
+        if (!isPeriodicOpen) {
+            // 例: Xボタンなどで開くならここでチェック
+            // if (raw.buttons?.parsed?.right?.x) openPeriodicTable();
+
+            // Joy-Conの角度を3Dシーンに反映させる必要がある
+            // LabScene側でgyro-dataイベントをリッスンして処理しているが、
+            // ここでLabViewがイベントをフックしてしまうと、LabScene側のデフォルト動作が阻害されていないか確認が必要。
+            // しかし、LabScene.jsの実装を見ると、SocketIOからのイベントを直接受け取って内部状態を更新し、
+            // その後 onGyroData コールバックを呼んでいるはず。
+
+            // LabScene.js の実装を確認すると、onGyroData は単なる通知フック。
+            // したがって、ここでreturnしてもLabScene内部の回転ロジックには影響しないはずだが、
+            // ユーザーが「反映されなくなった」と言っている。
+
+            // LabScene.jsを読んで確認したが、LabScene内で `this.socket.on('gyro-data', ...)` しており、
+            // そこで `this.flask.rotation.z = ...` しているなら動くはず。
+            // もしLabSceneがこのコールバックに依存しているなら問題。
+
+            // 念のため、ここで明示的にLabSceneに渡す必要はないか？
+            // いえ、LabSceneがイベント発生源です。
+
+            return;
+        }
+
+        const now = Date.now();
+        if (now - lastStickMoveTime < STICK_DELAY) return;
+
+        let moved = false;
+
+        // Sticks (Left or Right)
+        // JoyConServiceからのデータ構造: raw.sticks.left.x/y など (-1.0 ~ 1.0)
+        // Y軸は上がマイナス値になることが多いが、JoyConServiceの実装次第。
+        // ここでは raw.sticks が存在することを前提に処理する。
+        const sl = raw.sticks?.left || {x:0, y:0};
+        const sr = raw.sticks?.right || {x:0, y:0};
+
+        // デバッグログ (開発時のみ有効にすると便利)
+        // console.log('Sticks:', sl, sr);
+
+        // Y軸: 上がマイナス, 下がプラス (通常のアナログスティックの仕様)
+        // X軸: 左がマイナス, 右がプラス
+        // 右スティックも有効に
+        if (sl.y < -STICK_THRESHOLD || sr.y < -STICK_THRESHOLD) { handleInput('up'); moved = true; }
+        else if (sl.y > STICK_THRESHOLD || sr.y > STICK_THRESHOLD) { handleInput('down'); moved = true; }
+        else if (sl.x < -STICK_THRESHOLD || sr.x < -STICK_THRESHOLD) { handleInput('left'); moved = true; }
+        else if (sl.x > STICK_THRESHOLD || sr.x > STICK_THRESHOLD) { handleInput('right'); moved = true; }
+
+        // 開発用: スティック値が閾値を超えてないか確認用ログ
+        // if (!moved && (Math.abs(sr.x) > 0.1 || Math.abs(sr.y) > 0.1)) {
+        //    console.log(`Right Stick raw: x=${sr.x}, y=${sr.y}`);
+        // }
+
+        // D-Pad (Left Joy-Con Buttons)
+        if (!moved && raw.buttons?.parsed?.left) {
+            if (raw.buttons.parsed.left.up) { handleInput('up'); moved = true; }
+            if (raw.buttons.parsed.left.down) { handleInput('down'); moved = true; }
+            if (raw.buttons.parsed.left.left) { handleInput('left'); moved = true; }
+            if (raw.buttons.parsed.left.right) { handleInput('right'); moved = true; }
+        }
+
+        if (moved) lastStickMoveTime = now;
+
+        // Buttons (Right Joy-Con)
+        if (raw.buttons?.parsed?.right) {
+            // A or B to Close/Select
+            if (raw.buttons.parsed.right.b) closePeriodicTable();
+            if (raw.buttons.parsed.right.a) {
+                // 選択決定時の処理
+                const selected = periodicTableLayout[currentFocusIndex];
+                selectPeriodicElement({ ...selected, originalIndex: currentFocusIndex });
+            }
+        }
+    }
+
+    // ---------------------------------------------------------
+    // イベントリスナー設定
+    // ---------------------------------------------------------
+
+    // 周期表ボタン
+    if (btnPeriodic) {
+        btnPeriodic.addEventListener('click', () => {
+            if (isPeriodicOpen) closePeriodicTable();
+            else openPeriodicTable();
+        });
+    }
+
+    // 周期表閉じるボタン
+    if (btnClosePeriodic) {
+        btnClosePeriodic.addEventListener('click', closePeriodicTable);
+    }
+
+    // 実験終了ボタン
+    if (btnFinish) {
+        btnFinish.addEventListener('click', () => {
+            clearInterval(intervalId);
+            stopFreeModeStatusLoop();
+            // toastはcontext内なので自動削除される
+            if (labScene) labScene.dispose();
+
+            // params.id（クエストID）がある場合はクエスト一覧へ、なければダッシュボードへ
+            if (params.id) {
+                navigateTo('/select-mode');
+            } else {
+                navigateTo('/dashboard');
+            }
+        });
+    }
+
+    // タイマー処理
+    if (timerEl) {
+        intervalId = setInterval(() => {
+            if (!document.body.contains(container)) {
+                clearInterval(intervalId);
+                stopFreeModeStatusLoop();
+
+                // リスナー削除のため、開いていれば閉じる処理を実行
+                if (isPeriodicOpen) closePeriodicTable();
+
+                // DOM削除時に破棄も行う
+                if (labScene) labScene.dispose();
+                return;
+            }
+            seconds++;
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            timerEl.textContent = `${m}:${s}`;
+        }, 1000);
+    }
+
+    // ---------------------------------------------------------
+    // シーン初期化 (非同期)
+    // ---------------------------------------------------------
+    setTimeout(() => {
+        const canvasContainer = container.querySelector('#three-canvas-container');
+        if (canvasContainer) {
+            // コンストラクタにパラメータを渡して初期化
+            labScene = new LabScene(canvasContainer, params.id);
+
+            // Joy-Conイベントをフック
+            labScene.onGyroData = (data) => {
+                // JoyConServiceからの生データがあれば使用してUI操作
+                if (data.raw) {
+                    handleJoyConInput(data);
+                }
+            };
+
+            // 実験完了時のコールバック
+            labScene.onFreeReactionRequest = async ({ testTubeChemical, flaskChemical }) => {
+                updateFreeModeStatusPanel();
+                try {
+                    const result = await evaluateFreeReaction(testTubeChemical, flaskChemical);
+                    labScene.applyFreeReactionResult(result.reaction);
+                    updateFreeModeStatusPanel();
+                    showInstruction(`観察結果: ${result.reaction.title} - ${result.reaction.summary}`);
+                    console.log('[LabView] Free mode reaction:', result.source, result.reaction);
+                } catch (error) {
+                    console.warn('[LabView] Failed to evaluate free mode reaction:', error);
+                    const fallbackReaction = {
+                        title: '未登録の組み合わせ',
+                        summary: '反応データを取得できませんでした。',
+                        visualEffect: 'unknown',
+                        liquidColor: null,
+                        safetyNote: 'フリーモード反応辞書を確認してください。',
+                        confidence: 'low'
+                    };
+                    labScene.applyFreeReactionResult(fallbackReaction);
+                    updateFreeModeStatusPanel();
+                    showInstruction(`観察結果: ${fallbackReaction.title} - ${fallbackReaction.summary}`);
+                }
+            };
+
+            labScene.onExperimentComplete = async (expId) => {
+                console.log(`[LabView] Experiment Completed: ${expId}`);
+
+                const dialog = container.querySelector('#lab-explanation-dialog');
+                const textEl = container.querySelector('#lab-explanation-text');
+                const btnClose = container.querySelector('#btn-close-explanation');
+                const completedQuest = getQuestById(expId);
+
+                // ★トロフィー獲得ロジックの追加
+                if (expId) {
+                    recordExperimentProgress(expId, 'completed').catch(error => {
+                        console.warn('[LabView] Failed to save experiment progress:', error);
+                    });
+
+                    const trophyId = completedQuest?.trophyId || `trophy_${expId}`;
+                    console.log(`[LabView] Requesting trophy unlock: ${trophyId}`);
+
+                    // unlockTrophyは非同期なのでawaitする
+                    // async関数内ではないため、thenチェーンを使用するか、即時実行関数でラップするのが望ましいが、
+                    // ここは簡単なthenチェーンで実装
+                    unlockTrophy(trophyId).then(isNew => {
+                        if (isNew) {
+                             // 詳細情報を取得して表示
+                             const t = trophiesData.find(item => item.id === trophyId);
+                             const title = t ? t.title : '実験達成！';
+
+                             // 以前のalertを廃止し、Toast通知を表示
+                             // alert(`🏆 トロフィー獲得！\n\n「${title}」\n\n新しい実績が解除されました！`);
+                             showTrophyToast(title);
+                        } else {
+                             console.log(`Trophy ${trophyId} already acquired (or failed).`);
+                        }
+                    });
+                }
+
+                if (dialog && textEl) {
+                    setExplanationContent(textEl, completedQuest?.explanationHtml);
+
+                    dialog.style.display = 'block';
+
+                    if (btnClose) {
+                        btnClose.onclick = () => {
+                            dialog.style.display = 'none';
+                            // クエスト完了としてクエスト一覧（セレクトモード）へ戻る
+                            clearInterval(intervalId);
+                            if (labScene) labScene.dispose();
+
+                            // Result画面をスキップ
+                            navigateTo('/select-mode');
+                        };
+                    }
+                }
+            };
+
+            // 実験IDが渡されている場合、その実験用の初期設定を行う
+            if (params.id) {
+                console.log(`Setting up experiment: ${params.title} (${params.id})`);
+
+                // クエスト手順の表示
+                const instructionBox = container.querySelector('#lab-instruction-box');
+                const instructionText = container.querySelector('#lab-instruction-text');
+                if (instructionBox && instructionText) {
+                    const mission = quest?.mission || '自由に実験してみよう。';
+                    if (mission) {
+                        instructionText.textContent = mission;
+                        instructionBox.style.display = 'block';
+                    }
+                }
+
+                // ツールバー設定
+                const toolbar = container.querySelector('#lab-toolbar');
+                if (toolbar) {
+                     // 1. まずツールバーをクリア
+                     toolbar.replaceChildren();
+
+                     const actions = quest?.toolbarActions || [];
+
+                     // 2. クエスト定義に応じたボタンを追加
+                     if (actions.length > 0) {
+
+                         // ボタンがあるときは周期表ボタンを隠す
+                         if (btnPeriodic) btnPeriodic.style.display = 'none';
+
+                         actions.forEach(action => {
+                             const btn = document.createElement('button');
+                             btn.className = 'secondary-btn';
+                             btn.style.width = 'auto';
+                             btn.style.padding = '0.5rem 1rem';
+                             btn.textContent = action.label;
+                             btn.onclick = () => {
+                                 if (labScene && labScene.setChemical) {
+                                     labScene.setChemical(action.chemical);
+                                     if (titleEl) titleEl.textContent = action.setTitle || action.label;
+                                 }
+                             };
+                             toolbar.appendChild(btn);
+                         });
+                     } else {
+                        // それ以外は周期表ボタンを表示
+                        if (btnPeriodic) btnPeriodic.style.display = 'flex';
+                     }
+                }
+
+
+
+                const initialChemicalName = quest?.initialChemical?.name;
+                if (initialChemicalName) {
+                    const initialChemical = detailedData.find(d => d.Name === initialChemicalName || d.Symbol === initialChemicalName);
+                    if (initialChemical && labScene.setChemical) {
+                        labScene.setChemical(initialChemical);
+                        if (titleEl) titleEl.textContent = `${quest.title}: ${initialChemical.Name}`;
+                    }
+                }
+            } else {
+                showInstruction('周期表から物質を選び、試験管とフラスコに入れてから注いで混ぜてください。登録済みの組み合わせは観察結果が表示されます。');
+                updateFreeModeStatusPanel();
+                startFreeModeStatusLoop();
+            }
+        }
+    }, 0);
+
+    return container;
+}

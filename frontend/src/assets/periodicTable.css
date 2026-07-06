@@ -1,0 +1,167 @@
+@charset "UTF-8";
+
+/* 周期表オーバーレイ */
+.close-btn {
+    position: absolute;
+    top: 16px;
+    right: 22px;
+    left: auto;
+    width: 44px;
+    height: 44px;
+    background: rgba(8, 12, 18, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 2.2rem;
+    cursor: pointer;
+    z-index: 2010;
+    line-height: 1;
+    transition: all 0.2s;
+    font-family: sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.close-btn:hover {
+    background: rgba(255, 77, 77, 0.16);
+    border-color: rgba(255, 77, 77, 0.45);
+    color: #ff4d4d;
+    transform: scale(1.1);
+}
+
+.periodic-table-overlay {
+    /* display: none; はHTMLのstyle属性で制御されるためCSSからは削除してもよいが、念のため残す */
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    flex-direction: column;
+}
+
+.periodic-table-container {
+    display: grid;
+    grid-template-columns: repeat(18, 1fr);
+    grid-template-rows: repeat(9, minmax(0, 1fr));
+    gap: 4px;
+    width: min(96vw, 1440px);
+    height: min(68vh, 760px);
+    margin-bottom: 20px;
+}
+
+.element-cell {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    border: 1px solid #555;
+    background-color: rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 4px;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    text-align: center;
+}
+
+/* 選択状態 */
+.element-cell.selected {
+    border: 3px solid cyan;
+    background-color: rgba(0, 255, 255, 0.3);
+    z-index: 10;
+    box-shadow: 0 0 15px cyan;
+}
+
+.element-symbol {
+    font-size: clamp(0.95rem, 1.8vw, 1.35rem);
+    font-weight: bold;
+}
+
+.element-number {
+    font-size: 0.6em;
+    position: absolute;
+    top: 2px;
+    left: 4px;
+}
+
+.element-name {
+    font-size: clamp(0.45rem, 0.9vw, 0.7rem);
+    line-height: 1.1;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+/* 情報パネル */
+.element-info-panel {
+    width: 80%;
+    height: 20%;
+    background-color: #222;
+    border: 1px solid #666;
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    gap: 20px;
+}
+
+.info-symbol-large {
+    font-size: 3em;
+    font-weight: bold;
+    color: cyan;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+    border-right: 1px solid #444;
+}
+
+.info-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    flex: 1;
+}
+
+.info-title {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.info-desc {
+    font-size: 0.9em;
+    color: #ccc;
+    line-height: 1.4;
+}
+
+.info-props {
+    display: flex;
+    gap: 15px;
+    font-size: 0.85em;
+    color: #aaa;
+}
+
+/* Joy-Con操作ガイド */
+.joycon-guide {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    font-size: 0.9em;
+    color: #888;
+}
+
+/* 周期表の空白セル用 */
+.element-cell.empty,
+.empty-cell {
+    pointer-events: none;
+}
