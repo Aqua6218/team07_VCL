@@ -7,10 +7,18 @@ body, html {
     height: 100%;
 }
 
+/* View全体のルート要素。#content-rootがflexのalign-items:centerのため、
+   ここで高さを明示しないと.register-wrapperのheight:100%が解決できず、中身の高さ分だけ伸びてクリップされる */
+.register-root {
+    height: 100%;
+    min-height: 0;
+}
+
 /* Main Wrapper: Split Layout */
 .register-wrapper {
     display: flex;
     height: 100%;
+    min-height: 0;
     width: 100%;
     font-family: 'Helvetica Neue', Arial, sans-serif;
     overflow: hidden;
@@ -69,24 +77,24 @@ body, html {
 }
 
 .circle-1 {
-    width: 300px;
-    height: 300px;
-    top: -50px;
-    left: -50px;
+    width: 18.75rem; /* 300px */
+    height: 18.75rem;
+    top: -3.125rem;
+    left: -3.125rem;
     animation: float 8s infinite ease-in-out;
 }
 
 .circle-2 {
-    width: 200px;
-    height: 200px;
+    width: 12.5rem; /* 200px */
+    height: 12.5rem;
     bottom: 10%;
     right: 15%;
     animation: float 10s infinite ease-in-out reverse;
 }
 
 .circle-3 {
-    width: 100px;
-    height: 100px;
+    width: 6.25rem; /* 100px */
+    height: 6.25rem;
     top: 20%;
     right: 10%;
     background: rgba(255, 255, 255, 0.2) !important;
@@ -109,24 +117,29 @@ body, html {
     flex: 4; /* 40% */
     background-color: #ffffff;
     display: flex;
+    flex-direction: column; /* 縦方向を主軸にし、auto marginで中央寄せしつつスクロールも効かせる */
     align-items: center;
-    justify-content: center;
     padding: 2rem;
     position: relative;
     z-index: 2002;
     box-sizing: border-box;
+    /* フォーム項目が増えて縦に収まらない場合でも、align-items:centerによるクリップを避けて内側スクロールで見られるようにする */
+    overflow-y: auto;
+    max-height: 100%;
+    min-height: 0; /* flexアイテムのデフォルト(min-height:auto)を打ち消し、overflow-yを機能させる */
 }
 
 .register-card-modern {
     width: 100%;
-    max-width: 450px;
+    max-width: 28.125rem; /* 450px */
     padding: 3rem;
     background-color: #ffffff;
-    border-radius: 20px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.08); /* Soft Shadow */
+    border-radius: 1.25rem;
+    box-shadow: 0 0.625rem 2.5rem rgba(0,0,0,0.08); /* Soft Shadow */
     border: 1px solid #eee;
     text-align: left;
     box-sizing: border-box;
+    margin: auto 0; /* 収まる時は上下中央、収まらない時は0に縮んでスクロール可能になる */
 }
 
 .form-header {
@@ -166,7 +179,7 @@ body, html {
 
 .input-icon {
     position: absolute;
-    left: 15px;
+    left: 0.9375rem; /* 15px */
     font-size: 1.1rem;
     color: #aaa;
     pointer-events: none;
@@ -174,9 +187,9 @@ body, html {
 
 .input-wrapper input {
     width: 100%;
-    padding: 12px 12px 12px 45px !important; /* Space for icon, force override */
-    border: 2px solid #eee;
-    border-radius: 12px;
+    padding: 0.75rem 0.75rem 0.75rem 2.8125rem !important; /* Space for icon, force override */
+    border: 0.125rem solid #eee;
+    border-radius: 0.75rem;
     font-size: 1rem;
     transition: all 0.3s ease;
     box-sizing: border-box;
@@ -197,16 +210,16 @@ body, html {
 
 .primary-btn.register-btn {
     width: 100%;
-    padding: 14px;
+    padding: 0.875rem; /* 14px */
     background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
     border: none;
-    border-radius: 12px;
+    border-radius: 0.75rem;
     color: white;
     font-size: 1rem;
     font-weight: bold;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
-    margin-top: 10px;
+    margin-top: 0.625rem; /* 10px */
 }
 
 .primary-btn.register-btn:hover {
@@ -249,7 +262,7 @@ body, html {
 }
 
 /* Mobile Responsive */
-@media (max-width: 900px) {
+@media (max-width: 56.25em) { /* 900px */
     .register-wrapper {
         flex-direction: column;
         height: 100%;
@@ -258,7 +271,7 @@ body, html {
 
     .register-visual {
         flex: 3;
-        min-height: 200px;
+        min-height: 12.5rem; /* 200px */
     }
 
     .visual-title { font-size: 3rem; }

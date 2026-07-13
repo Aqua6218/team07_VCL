@@ -19,6 +19,7 @@ import { NotFoundView } from './views/NotFound/index.js'; // 追加
 import { RegisterView } from './views/Register/index.js';
 import { SelectModeView } from './views/SelectMode/index.js';
 import { SettingView } from './views/Setting/index.js';
+import { StudentManagementView } from './views/StudentManagement/index.js';
 import { TrophyView } from './views/Trophy/index.js';
 
 console.log('VCL SPA Frontend Initialized');
@@ -68,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     registerRoute('/trophy', wrapView(TrophyView));
     registerRoute('/admin', wrapView(AdminView));
     registerRoute('/setting', wrapView(SettingView));
+    registerRoute('/student-management', wrapView(StudentManagementView));
 
     registerRoute('/lab', wrapView(LabView));       // navigateTo('lab', {id: '...'}) で呼ばれる
     registerRoute('/free-mode', (params) => {       // フリーモードショートカット
@@ -89,7 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'idea': '/idea',
             'live': '/live',
             'trophy': '/trophy',
-            'setting': '/setting'
+            'setting': '/setting',
+            'student-management': '/student-management'
         };
         const path = pathMap[id] || '/dashboard';
         navigateTo(path);

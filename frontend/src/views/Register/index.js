@@ -12,7 +12,8 @@ import './toggle_v2.css';
 
 export function RegisterView(navigateTo) {
     const container = document.createElement('div');
-    // container.classList.add('view-container'); // 不要: template内で .register-wrapper が全て管理するため
+    // #content-rootはalign-items:centerのため、高さを明示しないと中身に合わせて伸びてクリップされる
+    container.classList.add('register-root');
     container.innerHTML = template;
 
     // イベントリスナー設定
@@ -50,6 +51,7 @@ const handleRegister = async (e) => {
         const username = container.querySelector('#reg-username').value;
         const email = container.querySelector('#reg-email').value;
         const password = container.querySelector('#reg-password').value;
+        const className = container.querySelector('#reg-class').value;
         const isTeacher = container.querySelector('#reg-role-toggle').checked;
         const role = isTeacher ? 'teacher' : 'student';
 
@@ -62,7 +64,7 @@ const handleRegister = async (e) => {
             const response = await fetch('http://localhost:3000/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password, role })
+                body: JSON.stringify({ username, email, password, role, className })
             });
 
             const data = await response.json();

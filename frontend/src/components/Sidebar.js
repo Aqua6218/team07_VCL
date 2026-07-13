@@ -19,20 +19,27 @@ function getUser() {
  */
 export function updateSidebarAuthState() {
     const item = document.getElementById('nav-auth-item');
-    if (!item) return;
+    if (item) {
+        if (isLoggedIn()) {
+            const user = getUser();
+            const label = user?.nickname || user?.username || 'アカウント';
+            item.querySelector('.nav-icon').textContent = '🚪';
+            item.querySelector('.nav-label').textContent = 'ログアウト';
+            item.dataset.id = 'logout';
+            item.title = `${label} としてログイン中`;
+        } else {
+            item.querySelector('.nav-icon').textContent = '🔑';
+            item.querySelector('.nav-label').textContent = 'ログイン';
+            item.dataset.id = 'login';
+            item.title = '';
+        }
+    }
 
-    if (isLoggedIn()) {
-        const user = getUser();
-        const label = user?.nickname || user?.username || 'アカウント';
-        item.querySelector('.nav-icon').textContent = '🚪';
-        item.querySelector('.nav-label').textContent = 'ログアウト';
-        item.dataset.id = 'logout';
-        item.title = `${label} としてログイン中`;
-    } else {
-        item.querySelector('.nav-icon').textContent = '🔑';
-        item.querySelector('.nav-label').textContent = 'ログイン';
-        item.dataset.id = 'login';
-        item.title = '';
+    // 教師権限アカウントの場合のみ「学生管理」をサイドバーに表示する
+    const studentMgmtItem = document.getElementById('nav-student-mgmt-item');
+    if (studentMgmtItem) {
+        const isTeacher = isLoggedIn() && getUser()?.role === 'teacher';
+        studentMgmtItem.style.display = isTeacher ? '' : 'none';
     }
 }
 

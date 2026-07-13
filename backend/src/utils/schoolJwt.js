@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 
 const DEFAULT_SECRET = 'vcl_secret_key_2026';
 
-function getJwtSecret() {
+export function getJwtSecret() {
     // 本番ではVCL_JWT_SECRETを必ず設定する。未設定時の値は開発用。
     return process.env.VCL_JWT_SECRET || DEFAULT_SECRET;
 }

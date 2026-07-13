@@ -3,7 +3,7 @@
 .role-switch-container {
     display: flex;
     justify-content: center;
-    margin-bottom: 25px;
+    margin-bottom: 1.5625rem; /* 25px */
 }
 
 /* Hide Checkbox */
@@ -16,13 +16,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    width: 240px;
-    height: 50px;
+    width: 15rem; /* 240px */
+    height: 3.125rem; /* 50px */
     background-color: #f0f2f5;
-    border-radius: 30px;
+    border-radius: 1.875rem;
     position: relative;
     cursor: pointer;
-    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+    box-shadow: inset 0 0.125rem 0.3125rem rgba(0,0,0,0.05);
     user-select: none;
 }
 
@@ -35,26 +35,26 @@
     font-size: 1rem;
     color: #888;
     transition: color 0.3s ease;
-    line-height: 50px;
+    line-height: 3.125rem; /* matches .role-switch-label height */
 }
 
 /* Slider (The moving part) */
 .role-slider {
     position: absolute;
-    top: 4px;
-    left: 4px;
-    width: 116px; /* (240 - 8) / 2 */
-    height: 42px;
+    top: 0.25rem;
+    left: 0.25rem;
+    width: 7.25rem; /* (240 - 8) / 2, in rem */
+    height: 2.625rem; /* 42px */
     background: #4facfe; /* Default Student Color */
-    border-radius: 26px;
+    border-radius: 1.625rem;
     transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), background 0.3s ease;
     z-index: 1;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 0.125rem 0.3125rem rgba(0,0,0,0.2);
 }
 
 /* Checked State (Teacher) */
 .role-checkbox:checked + .role-switch-label .role-slider {
-    transform: translateX(116px);
+    transform: translateX(7.25rem);
     background: #fa709a; /* Teacher Color (Warm Pink/Orange) */
 }
 

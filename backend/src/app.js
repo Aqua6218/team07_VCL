@@ -18,6 +18,7 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import adminRoutes from './routes/adminRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+import classRoutes from './routes/classRoutes.js';
 import freeReactionRoutes from './routes/freeReactionRoutes.js';
 import gyroRoutes from './routes/gyroRoutes.js';
 import noteRoutes from './routes/noteRoutes.js';
@@ -64,6 +65,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/classes', classRoutes);
 app.use('/api/trophies', trophyRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/school', schoolRoutes);

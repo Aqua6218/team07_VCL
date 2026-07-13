@@ -31,9 +31,12 @@ export class AuthController {
 
     async register(req, res) {
         try {
-            const { username, email, password, nickname, role } = req.body;
+            const { username, email, password, nickname, role, className } = req.body;
              if (!username || !password) {
                 return res.status(400).json({ error: 'ユーザー名とパスワードは必須です。' });
+            }
+            if (!className) {
+                return res.status(400).json({ error: 'クラスは必須です。' });
             }
 
             // emailが空文字列の場合はundefined/nullとして扱う
@@ -41,7 +44,7 @@ export class AuthController {
             // roleが指定されていない場合はデフォルト 'student'
             const userRole = role === 'teacher' ? 'teacher' : 'student';
 
-            const user = await authService.register(username, validEmail, password, nickname, userRole);
+            const user = await authService.register(username, validEmail, password, nickname, userRole, className);
             res.status(201).json(user);
         } catch (error) {
             res.status(400).json({ error: error.message });

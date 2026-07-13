@@ -10,7 +10,25 @@
       "PowerShell(Invoke-WebRequest -Uri \"https://jjetfhiqfqcjssahqjxn.supabase.co\" -UseBasicParsing -TimeoutSec 15 2>&1 | Select-Object StatusCode, StatusDescription)",
       "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3000/api/school/progress-board\" -UseBasicParsing -TimeoutSec 10 2>&1 | Select-Object StatusCode, Content)",
       "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3000/api/experiments\" -UseBasicParsing -TimeoutSec 10 2>&1 | Select-Object StatusCode, Content)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/)",
+      "Skill(run)",
+      "Read(//c/Users/jason/.claude/**)",
+      "Read(//c//**)",
+      "Bash(npx playwright *)",
+      "Bash(npm ls *)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5183/ --max-time 3)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill *)",
+      "Bash(curl *)",
+      "Bash(powershell -Command \"Get-Process -Id 14400 | Select-Object Id,ProcessName,StartTime,Path\")",
+      "Bash(powershell -Command \"\\(Get-CimInstance Win32_Process -Filter 'ProcessId=14400'\\).CommandLine\")",
+      "Bash(tee /tmp/student2_reg.json)",
+      "Bash(powershell -Command \"\\(Get-CimInstance Win32_Process -Filter 'ProcessId=3308'\\).CommandLine\")"
     ]
   }
 }

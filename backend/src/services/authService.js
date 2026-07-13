@@ -9,12 +9,14 @@
  */
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { ClassRepository } from '../repositories/classRepository.js';
 import { UserRepository } from '../repositories/userRepository.js';
+import { getJwtSecret } from '../utils/schoolJwt.js';
 
-const SECRET_KEY = 'vcl_secret_key_2026';
 export class AuthService {
     constructor() {
         this.userRepository = new UserRepository();
+        this.classRepository = new ClassRepository();
     }
 
     async login(identifier, password) {
@@ -35,10 +37,10 @@ export class AuthService {
             throw new Error('ユーザーIDまたはパスワードが間違っています。');
         }
 
-        // 署名付きトークンの発行
+        // 署名付きトークンの発行(school_idはクラス閲覧APIでの生徒絞り込みに使う)
         const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role, username: user.username, nickname: user.nickname },
-            SECRET_KEY,
+            { id: user.id, email: user.email, role: user.role, username: user.username, nickname: user.nickname, school_id: user.school_id },
+            getJwtSecret(),
             { expiresIn: '24h' }
         );
 
@@ -47,7 +49,7 @@ export class AuthService {
         return { user: userWithoutPassword, token };
     }
 
-    async register(username, email, password, nickname, role = 'student') {
+    async register(username, email, password, nickname, role = 'student', className) {
         const existingUserByUsername = await this.userRepository.findByUsername(username);
         if (existingUserByUsername) {
             throw new Error('このユーザー名は既に登録されています。');
@@ -70,12 +72,15 @@ export class AuthService {
             role
         });
 
+        // 教師の担当クラス・生徒の所属クラスとしてaccount_classへ登録する
+        await this.classRepository.create(newUser.id, className);
+
         // 登録後すぐにログイン状態にするためにトークンを発行
         // createメソッドの戻り値には role が含まれない場合がある（DB insert結果のみの場合など）ので注意が必要だが、
         // userRepository.createの実装では {...user} を返しているので role は含まれるはず。
         const token = jwt.sign(
-            { id: newUser.id, email: newUser.email, role: newUser.role, username: newUser.username, nickname: newUser.nickname },
-            SECRET_KEY,
+            { id: newUser.id, email: newUser.email, role: newUser.role, username: newUser.username, nickname: newUser.nickname, school_id: newUser.school_id },
+            getJwtSecret(),
             { expiresIn: '24h' }
         );
 
